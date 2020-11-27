@@ -49,6 +49,8 @@ class Moss:
         }
         self.base_files = []
         self.files = []
+        self.in_mem_base_files = []
+        self.in_mem_submission_files = []
 
         if language in self.languages:
             self.options["l"] = language
@@ -106,6 +108,26 @@ class Moss:
             s.send(f.read(size))
         on_send(file_path, display_name)
 
+    def set_in_mem_base_files(self,files):
+        self.in_mem_base_files = files
+
+    def set_in_mem_submission_files(self,files):
+        self.in_mem_submission_files = files
+
+    def upload_in_mem_file(self, s,file,file_id,on_send):
+        display_name = file.name.replace("\\", "/")
+        size = file.size
+        message = "file {0} {1} {2} {3}\n".format(
+            file_id,
+            self.options['l'],
+            size,
+            display_name
+        )
+        s.send(message.encode())
+        file.open(mode='read')
+        s.send(file.read(size))
+        on_send(display_name, display_name)
+
     def send(self, on_send=lambda file_path, display_name: None):
         s = socket.socket()
         s.connect((self.server, self.port))
@@ -126,9 +148,16 @@ class Moss:
         for file_path, display_name in self.base_files:
             self.uploadFile(s, file_path, display_name, 0, on_send)
 
+        for file in self.in_mem_base_files:
+            self.upload_in_mem_file(s,file,0,on_send)
+
         index = 1
         for file_path, display_name in self.files:
             self.uploadFile(s, file_path, display_name, index, on_send)
+            index += 1
+        
+        for file in self.in_mem_submission_files:
+            self.upload_in_mem_file(s,file,index,on_send)
             index += 1
 
         s.send("query 0 {}\n".format(self.options['c']).encode())
